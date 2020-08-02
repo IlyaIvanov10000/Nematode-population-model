@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Aug  2 16:13:15 2020
+
+@author: ilyaivanov1
+"""
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+default_parameters = [330000, 4000000, 0.5, 150, 0.00626, -0.0001, 16, 0.0082, 0.0005, 0.0099, 0.00215, 0.0099]
+
+#I give the population model the optional arguments of the parameters so you do not need to add all the parameters each time you want to make the model
+#You only specify the parameter that is different from the default settings
+def population_model(eggs_initial, t, Ws = default_parameters[0], K = default_parameters[1], b = default_parameters[2], eggs_per_cyst = default_parameters[3], Rae = default_parameters[4], x = default_parameters[5], T = default_parameters[6], y = default_parameters[7], Rsp = default_parameters[8], Ds = default_parameters[9], Rpa = default_parameters[10], Da = default_parameters[11]):
+    E = eggs_initial
+    S = 0
+    P = 0
+    A = 0
+    X = 0
+    Mult_factor = 1
+    data_points = [[1],[E],[S],[P],[A],[X],[Mult_factor]]
+
+    for i in range(1,t):
+        T = 12 + 7*np.sin(0.006*3.14*i)
+        #t = round((i + 1) * dt, 1) #i ranges from 0 to total_time - 1 so I add 1, round is done to reduce the number to one decimal place
+        #Define the differential equations 
+        #X = Ws * (A + b * P)/K
+        #K += 6000 * t*10
+        Res = x * T + y
+        
+        dX = 0.15 * Ws * (A + b * P)/K
+        dE = eggs_per_cyst * Rae * T * A - Res * E * (1 - X) - 0.01 * E
+        dS = Res * E * (1 - X) - Ds * S - Rsp * T * S * (1 - X)
+        dP = Rsp * T * S * (1 - X) - Rpa * T * P * (1-X)
+        dA = 0.5 * Rpa * T * P * (1-X) - Da * A - Rae * T * A
+        #Update values of the state variables
+        if X >= 1:
+            X = 1 #If the entire plant is infected up to carrying capacity it is dead --> X = 1
+        else:
+            X += dX
+        E += dE
+        S += dS
+        P += dP
+        A += dA
+        # We can fit Mult_factor/time to the experimental data but for different eggs_initial we have to vary coefficient before dX to fit it well. but for data in Blok, 2019 they had about 10-20 eggs/g soil so we'll go with that eggs_initial
+        Mult_factor = E / eggs_initial
+        
+
+        new_data = [i, E, S, P, A, X, Mult_factor]
+        #append the new data to the 2D list for graphing later
+        for j in range(7):
+            data_points[j].append(new_data[j]) #6 columns: t, E, S, P, A, X
+        
+        
+    return data_points
+    
+#print(population_model(1, 0.1)[0])
+
+def plot_dataset(x_values, y_values, x_label, y_label):
+    plt.plot(x_values, y_values)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.show()
+    
+#plot_dataset(population_model(15, 200)[0], population_model(15, 200)[6], 'Time', 'X')
+
+#This function compares initial egg densities to final egg densities to compare our model with Ward (1985)
+def final_vs_initial(start_range, end_range, steps):
+    data_points = [[],[]]
+    for i in np.arange(start_range, end_range, steps):
+        new_data = [i, (population_model(i, 150)[1][149])/i]
+        data_points[0].append(new_data[0])
+        data_points[1].append(new_data[1])
+            
+    return data_points
+
+plot_dataset(final_vs_initial(5, 50, 1)[0], final_vs_initial(5, 50, 1)[1], 'Initial', 'Final')
+            
+def test_parameter_influence(parameter, start_range, end_range, steps):
+    data_points = [[],[]]
+    for i in np.arange(start_range, end_range, steps):
+        new_data = [i, population_model(1, 150, parameter = i)[1][1500]]
+        data_points[0].append(new_data[0])
+        data_points[1].append(new_data[1])
+        
+    return data_points
+# plot_dataset(population_model(10,150)[0],population_model(10,150)[5],'x','y')
+#plot_dataset(test_parameter_influence(b, 0, 1, 0.1)[0], test_parameter_influence(b, 0, 1, 0.1)[1], 'b', 'E')
+    
